@@ -37,34 +37,35 @@ async function createChatInterface() {
         // 创建聊天界面HTML
         chatContainer.innerHTML = `
             <div id="ai-chat-header">
-                <span>AI Chat</span>
+                <span>AI 智能助手</span>
                 <div id="ai-chat-controls">
-                    <button id="ai-chat-settings" title="Settings">⚙️</button>
-                    <button id="ai-chat-close" title="Close">×</button>
+                    <button id="ai-chat-settings" title="设置">⚙️</button>
+                    <button id="ai-chat-close" title="关闭">×</button>
                 </div>
             </div>
+            <div id="ai-chat-resize-handle"></div>
             <div id="ai-chat-messages"></div>
             <div id="ai-chat-input">
-                <textarea id="ai-chat-input-text" placeholder="Type your message..."></textarea>
-                <button id="ai-chat-send-button" title="Send message">Send</button>
+                <textarea id="ai-chat-input-text" placeholder="输入消息..."></textarea>
+                <button id="ai-chat-send-button" title="发送消息">发送</button>
             </div>
             <div id="ai-chat-settings-panel" style="display: none;">
-                <h3>Settings</h3>
+                <h3>设置</h3>
                 <div class="settings-group">
-                    <label for="ai-base-url">Base URL:</label>
-                    <input type="text" id="ai-base-url" placeholder="Enter API base URL">
+                    <label for="ai-base-url">API地址：</label>
+                    <input type="text" id="ai-base-url" placeholder="输入API地址">
                 </div>
                 <div class="settings-group">
-                    <label for="ai-api-key">API Key:</label>
-                    <input type="password" id="ai-api-key" placeholder="Enter API key">
+                    <label for="ai-api-key">API密钥：</label>
+                    <input type="password" id="ai-api-key" placeholder="输入API密钥">
                 </div>
                 <div class="settings-group">
-                    <label for="ai-model-name">Model Name:</label>
-                    <input type="text" id="ai-model-name" placeholder="Enter model name">
+                    <label for="ai-model-name">模型名称：</label>
+                    <input type="text" id="ai-model-name" placeholder="输入模型名称">
                 </div>
                 <div class="settings-buttons">
-                    <button id="ai-save-settings">Save</button>
-                    <button id="ai-close-settings">Cancel</button>
+                    <button id="ai-save-settings">保存</button>
+                    <button id="ai-close-settings">取消</button>
                 </div>
             </div>
         `;
@@ -84,6 +85,24 @@ async function createChatInterface() {
                 display: flex;
                 flex-direction: column;
                 font-family: Arial, sans-serif;
+                min-width: 300px;
+                max-width: 800px;
+                resize: horizontal;
+                overflow: auto;
+            }
+
+            #ai-chat-resize-handle {
+                position: absolute;
+                left: 0;
+                top: 0;
+                bottom: 0;
+                width: 4px;
+                background: transparent;
+                cursor: ew-resize;
+            }
+
+            #ai-chat-resize-handle:hover {
+                background: rgba(0, 123, 255, 0.3);
             }
 
             #ai-chat-header {
@@ -152,9 +171,26 @@ async function createChatInterface() {
 
             .ai-chat-message {
                 margin-bottom: 15px;
-                padding: 8px;
+                padding: 10px;
                 border-radius: 8px;
                 max-width: 85%;
+            }
+
+            .ai-chat-message .message-content {
+                white-space: pre-wrap;
+                word-break: break-word;
+            }
+
+            .ai-chat-message .message-content pre {
+                background: #f6f8fa;
+                padding: 10px;
+                border-radius: 4px;
+                overflow-x: auto;
+            }
+
+            .ai-chat-message .message-content code {
+                font-family: 'Consolas', 'Monaco', monospace;
+                font-size: 0.9em;
             }
 
             .user-message {
@@ -163,10 +199,20 @@ async function createChatInterface() {
                 color: white;
             }
 
+            .user-message pre,
+            .user-message code {
+                background: rgba(255, 255, 255, 0.1) !important;
+                color: white !important;
+            }
+
             .ai-message {
                 margin-right: auto;
                 background: #f8f9fa;
                 border: 1px solid #dee2e6;
+            }
+
+            .ai-message pre {
+                border: 1px solid #e1e4e8;
             }
 
             #ai-chat-settings-panel {
@@ -226,6 +272,31 @@ async function createChatInterface() {
         document.head.appendChild(style);
         document.body.appendChild(chatContainer);
         console.log('[Content] Chat container and styles added to page');
+
+        // 添加拖动调整大小功能
+        const resizeHandle = document.getElementById('ai-chat-resize-handle');
+        let isResizing = false;
+        let startX, startWidth;
+
+        resizeHandle.addEventListener('mousedown', (e) => {
+            isResizing = true;
+            startX = e.clientX;
+            startWidth = parseInt(document.defaultView.getComputedStyle(chatContainer).width, 10);
+            
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', () => {
+                isResizing = false;
+                document.removeEventListener('mousemove', handleMouseMove);
+            });
+        });
+
+        function handleMouseMove(e) {
+            if (!isResizing) return;
+            const width = startWidth - (e.clientX - startX);
+            if (width >= 300 && width <= 800) {
+                chatContainer.style.width = width + 'px';
+            }
+        }
 
         // 立即设置事件监听器
         console.log('[Content] Setting up event listeners');
@@ -339,103 +410,26 @@ async  function delay (ms) {
 async function loadExternalLibraries() {
     console.log('[Content] Starting to load external libraries');
     try {
-        // 添加样式
-        const styleLink = document.createElement('link');
-        styleLink.href = chrome.runtime.getURL('lib/github.min.css');
-        styleLink.rel = 'stylesheet';
-        document.head.appendChild(styleLink);
-        console.log('[Content] Added stylesheet:', styleLink.href);
+        // 加载 highlight.js CSS
+        const highlightCSS = document.createElement('link');
+        highlightCSS.rel = 'stylesheet';
+        highlightCSS.href = chrome.runtime.getURL('lib/github.min.css');
+        document.head.appendChild(highlightCSS);
+        console.log('[Content] Added stylesheet:', highlightCSS.href);
 
-        // 同步加载 marked.js
-        console.log('[Content] Loading marked.js');
-        const markedScript = document.createElement('script');
-        markedScript.src = chrome.runtime.getURL('lib/marked.min.js');
-        markedScript.async = false;
-        document.head.appendChild(markedScript);
-        
-        // 同步加载 highlight.js
-        console.log('[Content] Loading highlight.js');
-        const highlightScript = document.createElement('script');
-        highlightScript.src = chrome.runtime.getURL('lib/highlight.min.js');
-        highlightScript.async = false;
-        document.head.appendChild(highlightScript);
+        // 加载 marked.js
+        window.marked = await import(chrome.runtime.getURL('lib/marked.esm.js')).then(module => module.marked);
+        console.log('[Content] marked.js loaded');
 
-        // 等待库加载完成
-        await new Promise((resolve) => {
-            highlightScript.onload = () => {
-                console.log('[Content] highlight.js loaded');
-                if (window.marked && window.hljs) {
-                    resolve();
-                }
-            };
-            markedScript.onload = () => {
-                console.log('[Content] marked.js loaded');
-                if (window.marked && window.hljs) {
-                    resolve();
-                }
-            };
-        });
+        // 加载 highlight.js
+        window.hljs = await import(chrome.runtime.getURL('lib/highlight.min.js')).then(module => module.default);
+        console.log('[Content] highlight.js loaded');
 
-        console.log('[Content] Libraries loaded successfully:', {
-            marked: !!window.marked,
-            hljs: !!window.hljs
-        });
-
-        // 配置marked
-        try {
-            window.marked.setOptions({
-                renderer: new window.marked.Renderer(),
-                highlight: function(code, language) {
-                    const validLanguage = window.hljs.getLanguage(language) ? language : 'plaintext';
-                    return window.hljs.highlight(validLanguage, code).value;
-                },
-                pedantic: false,
-                gfm: true,
-                breaks: true,
-                sanitize: false,
-                smartypants: false,
-                xhtml: false
-            });
-            console.log('[Content] marked.js configured successfully');
-        } catch (error) {
-            console.error('[Content] Error configuring marked:', error);
-            throw error;
-        }
-
-        console.log('[Content] External libraries setup completed');
+        return true;
     } catch (error) {
-        console.error('[Content] Error loading external libraries:', error);
-        throw error;
+        console.error('[Content] Error loading libraries:', error);
+        return false;
     }
-}
-
-// 注入脚本的辅助函数
-async function injectScript(src) {
-    console.log('[Content] Injecting script:', src);
-    return new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = src;
-        script.onload = () => {
-            console.log('[Content] Script loaded successfully:', src);
-            resolve();
-        };
-        script.onerror = (error) => {
-            console.error('[Content] Error loading script:', src, error);
-            reject(new Error(`Failed to load script: ${src}`));
-        };
-        document.head.appendChild(script);
-    });
-}
-
-// 加载脚本的辅助函数
-function loadScript(src) {
-    return new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = src;
-        script.onload = resolve;
-        script.onerror = reject;
-        document.head.appendChild(script);
-    });
 }
 
 // 发送消息到AI
@@ -593,69 +587,45 @@ ${content}
     return fullContent;
 }
 
-// 添加消息到界面
-function addMessage(sender, text, isStream = false) {
+// 添加消息到聊天界面
+function addMessage(sender, content) {
+    console.log('[Content] Adding message from:', sender);
     const messagesContainer = document.getElementById('ai-chat-messages');
-    
-    // 如果是流式输出且已有AI消息，则追加到最后一条消息
-    if (isStream && sender === 'AI') {
-        const lastMessage = messagesContainer.lastElementChild;
-        if (lastMessage && lastMessage.classList.contains('ai-message')) {
-            const contentDiv = lastMessage.querySelector('.message-content');
-            try {
-                console.log('[Content] Parsing markdown');
-                contentDiv.innerHTML = window.marked.parse(text);
-                // 应用代码高亮
-                contentDiv.querySelectorAll('pre code').forEach((block) => {
-                    window.hljs.highlightBlock(block);
-                });
-            } catch (error) {
-                console.error('Error parsing markdown:', error);
-                contentDiv.textContent = text;
-            }
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            return;
-        }
+    if (!messagesContainer) {
+        console.error('[Content] Messages container not found');
+        return;
     }
 
-    // 创建新消息
     const messageDiv = document.createElement('div');
     messageDiv.className = `ai-chat-message ${sender.toLowerCase()}-message`;
-
-    // 创建头像
-    const avatarDiv = document.createElement('div');
-    avatarDiv.className = 'message-avatar';
-    avatarDiv.textContent = sender === 'AI' ? '🤖' : '👤';
-
-    // 创建消息内容
+    
+    // 创建内容div
     const contentDiv = document.createElement('div');
     contentDiv.className = 'message-content';
+    messageDiv.appendChild(contentDiv);
     
-    // 根据发送者处理消息格式
-    if (sender === 'AI') {
-        // AI消息使用Markdown格式
-        try {
-            contentDiv.innerHTML = window.marked.parse(text);
-            // 应用代码高亮
-            contentDiv.querySelectorAll('pre code').forEach((block) => {
-                window.hljs.highlightBlock(block);
-            });
-        } catch (error) {
-            console.error('Error parsing markdown:', error);
-            contentDiv.textContent = text;
+    // 使用marked.js处理Markdown
+    try {
+        // 确保marked和hljs已经加载
+        if (!window.marked || !window.hljs) {
+            throw new Error('Libraries not loaded');
         }
-    } else {
-        // 用户消息保持纯文本
-        contentDiv.textContent = text;
-    }
 
-    // 添加组件到消息div
-    if (sender === 'user') {
-        messageDiv.appendChild(contentDiv);
-        messageDiv.appendChild(avatarDiv);
-    } else {
-        messageDiv.appendChild(avatarDiv);
-        messageDiv.appendChild(contentDiv);
+        // 配置marked使用highlight.js
+        window.marked.setOptions({
+            highlight: function(code, lang) {
+                if (lang && window.hljs.getLanguage(lang)) {
+                    return window.hljs.highlight(code, { language: lang }).value;
+                }
+                return window.hljs.highlightAuto(code).value;
+            }
+        });
+
+        const htmlContent = window.marked.parse(content);
+        contentDiv.innerHTML = htmlContent;
+    } catch (error) {
+        console.error('[Content] Error parsing markdown:', error);
+        contentDiv.textContent = content;
     }
 
     messagesContainer.appendChild(messageDiv);
@@ -668,3 +638,87 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         createChatInterface();
     }
 });
+
+let currentAIMessage = null;
+
+function handleStreamMessage(message) {
+    console.log('[Content] Received stream chunk:', message);
+    
+    const messagesContainer = document.getElementById('ai-chat-messages');
+    if (!messagesContainer) {
+        console.error('[Content] Messages container not found');
+        return;
+    }
+
+    // 如果是新消息，创建新的消息元素
+    if (!currentAIMessage) {
+        currentAIMessage = document.createElement('div');
+        currentAIMessage.className = 'ai-chat-message ai-message';
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'message-content';
+        currentAIMessage.appendChild(contentDiv);
+        messagesContainer.appendChild(currentAIMessage);
+    }
+
+    // 获取或创建内容div
+    const contentDiv = currentAIMessage.querySelector('.message-content');
+    if (!contentDiv) {
+        console.error('[Content] Content div not found');
+        return;
+    }
+
+    // 累积消息内容
+    contentDiv.textContent = (contentDiv.textContent || '') + message;
+
+    // 滚动到底部
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+function handleStreamComplete() {
+    console.log('[Content] Stream completed');
+    if (currentAIMessage) {
+        const contentDiv = currentAIMessage.querySelector('.message-content');
+        if (contentDiv) {
+            console.log('[Content] Parsing markdown');
+            try {
+                // 确保marked和hljs已经加载
+                if (!window.marked || !window.hljs) {
+                    throw new Error('Libraries not loaded');
+                }
+
+                // 配置marked使用highlight.js
+                window.marked.setOptions({
+                    highlight: function(code, lang) {
+                        if (lang && window.hljs.getLanguage(lang)) {
+                            return window.hljs.highlight(code, { language: lang }).value;
+                        }
+                        return window.hljs.highlightAuto(code).value;
+                    }
+                });
+
+                const markdown = contentDiv.textContent || '';
+                const htmlContent = window.marked.parse(markdown);
+                contentDiv.innerHTML = htmlContent;
+            } catch (error) {
+                console.error('[Content] Error parsing markdown:', error);
+                // 保持原始文本
+            }
+        }
+        currentAIMessage = null;
+    }
+}
+
+function handleBackgroundMessage(message) {
+    console.log('[Content] Received message from background:', message);
+    
+    if (message.type === 'stream') {
+        handleStreamMessage(message.content);
+    } else if (message.type === 'streamComplete') {
+        handleStreamComplete();
+        console.log('[Content] Stream completed, disconnecting port');
+        if (port) {
+            port.disconnect();
+            port = null;
+        }
+    }
+}
