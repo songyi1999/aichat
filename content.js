@@ -5,6 +5,14 @@ let apiSettings = {
     modelName: ''
 };
 
+// 预设问题数组
+const presetQuestions = [
+    "总结下当前页面内容",
+    "这个页面的主要观点是什么",
+    "帮我翻译这个页面",
+    "解释下这段内容"
+];
+
 // 初始化设置
 function initializeSettings() {
     return new Promise((resolve) => {
@@ -45,6 +53,7 @@ async function createChatInterface() {
             </div>
             <div id="codeium-chat-resize-handle"></div>
             <div id="codeium-chat-messages"></div>
+            <div id="codeium-chat-preset-questions"></div>
             <div id="codeium-chat-input">
                 <textarea id="codeium-chat-input-text" placeholder="输入消息..."></textarea>
                 <button id="codeium-chat-send-button" title="发送消息">发送</button>
@@ -303,6 +312,28 @@ async function createChatInterface() {
                 background: #dc3545;
                 color: white;
             }
+
+            #codeium-chat-preset-questions {
+                padding: 10px;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+
+            .preset-question-link {
+                display: inline-block;
+                padding: 4px 8px;
+                background-color: #f0f0f0;
+                border-radius: 12px;
+                font-size: 12px;
+                color: #333;
+                text-decoration: none;
+                cursor: pointer;
+            }
+
+            .preset-question-link:hover {
+                background-color: #e0e0e0;
+            }
         `;
 
         // 添加到页面
@@ -439,9 +470,23 @@ async function createChatInterface() {
             console.error('[Content] Settings panel elements not found');
         }
 
-        // 添加初始消息
-        console.log('[Content] Adding welcome message');
-        addMessage('AI', '你好！我是AI助手，有什么可以帮你的吗？');
+        // 添加预设问题
+        const presetQuestionsContainer = document.getElementById('codeium-chat-preset-questions');
+        presetQuestions.forEach(question => {
+            const link = document.createElement('a');
+            link.className = 'preset-question-link';
+            link.textContent = question;
+            link.onclick = () => {
+                const inputText = document.getElementById('codeium-chat-input-text');
+                inputText.value = question;
+                document.getElementById('codeium-chat-send-button').click();
+            };
+            presetQuestionsContainer.appendChild(link);
+        });
+
+        // 初始化欢迎消息
+        const welcomeMessage = "👋 你好！我是AI助手，很高兴为你服务。你可以直接提问，或者点击下方的预设问题开始对话。";
+        addMessage('assistant', welcomeMessage);
 
         console.log('[Content] Chat interface creation completed');
     } catch (error) {
