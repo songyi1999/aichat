@@ -631,23 +631,19 @@ function getPageContent() {
             content = main.textContent;
         } else {
             // 3. 如果都没有，获取body中除了我们自己创建的聊天界面外的所有文本内容
-            const chatElements = document.querySelectorAll('[class*="codeium-"]');
-            const originalBodyText = document.body.innerText;
+            const fullText = document.body.innerText;
+            const separator = "AI 智能助手\n⚙️";
+            const parts = fullText.split(separator);
             
-            // 创建一个临时div来存储和处理文本
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = document.body.innerHTML;
+            // 获取分隔符左边的内容（原始页面内容）
+            content = parts[0] || '';
             
-            // 移除所有包含codeium的元素
-            chatElements.forEach(element => {
-                const corresponding = tempDiv.querySelector(`[class="${element.className}"]`);
-                if (corresponding) {
-                    corresponding.remove();
-                }
-            });
-            
-            content = tempDiv.innerText;
-            tempDiv.remove();
+            // 如果没有找到分隔符，使用完整内容
+            if (parts.length === 1) {
+                console.log('[Content] Separator not found, using full content');
+            } else {
+                console.log('[Content] Content split successfully');
+            }
         }
     }
 
@@ -665,7 +661,7 @@ ${content}
 `;
 
     // 限制内容长度（避免超过API限制）
-    const maxLength = 4000;
+    const maxLength = 60000; // 60k
     if (fullContent.length > maxLength) {
         return fullContent.substring(0, maxLength) + '...（内容已截断）';
     }
