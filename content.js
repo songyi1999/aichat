@@ -346,9 +346,19 @@ async function createChatInterface() {
         const closeSettingsButton = document.getElementById('codeium-close-settings');
 
         // 发送消息处理函数
-        function handleSendMessage(event) {
+        async function handleSendMessage(event) {
             console.log('[Content] Send button clicked');
             event.preventDefault();
+            const input = document.getElementById('codeium-chat-input-text');
+            if (!input || !input.value.trim()) return;
+
+            // 检查并确保库已加载
+            const librariesLoaded = await checkAndLoadLibraries();
+            if (!librariesLoaded) {
+                console.error('[Content] Cannot send message: Libraries not loaded');
+                return;
+            }
+
             const message = input.value.trim();
             if (message) {
                 console.log('[Content] Sending message:', message);
@@ -467,6 +477,22 @@ async function loadExternalLibraries() {
         console.error('[Content] Error loading libraries:', error);
         return false;
     }
+}
+
+// 检查库是否已加载
+async function checkAndLoadLibraries() {
+    if (!window.marked || !window.hljs) {
+        console.log('[Content] Libraries missing, reloading...');
+        try {
+            await loadExternalLibraries();
+            console.log('[Content] Libraries reloaded successfully');
+            return true;
+        } catch (error) {
+            console.error('[Content] Failed to reload libraries:', error);
+            return false;
+        }
+    }
+    return true;
 }
 
 // 发送消息到AI
@@ -594,11 +620,24 @@ function getPageContent() {
         if (main) {
             content = main.textContent;
         } else {
-            // 3. 如果都没有，获取body中的所有p标签内容
-            const paragraphs = document.querySelectorAll('p');
-            content = Array.from(paragraphs)
-                .map(p => p.textContent)
-                .join('\n\n');
+            // 3. 如果都没有，获取body中除了我们自己创建的聊天界面外的所有文本内容
+            const chatElements = document.querySelectorAll('[class*="codeium-"]');
+            const originalBodyText = document.body.innerText;
+            
+            // 创建一个临时div来存储和处理文本
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = document.body.innerHTML;
+            
+            // 移除所有包含codeium的元素
+            chatElements.forEach(element => {
+                const corresponding = tempDiv.querySelector(`[class="${element.className}"]`);
+                if (corresponding) {
+                    corresponding.remove();
+                }
+            });
+            
+            content = tempDiv.innerText;
+            tempDiv.remove();
         }
     }
 
@@ -684,37 +723,48 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 let currentAIMessage = null;
 
-function handleStreamMessage(message) {
-    console.log('[Content] Received stream chunk:', message);
-    
-    const messagesContainer = document.getElementById('codeium-chat-messages');
-    if (!messagesContainer) {
-        console.error('[Content] Messages container not found');
-        return;
+async function handleStreamMessage(message, isFirstChunk = false, isDone = false) {
+    try {
+        // 确保库已加载
+        const librariesLoaded = await checkAndLoadLibraries();
+        if (!librariesLoaded) {
+            console.error('[Content] Cannot render message: Libraries not loaded');
+            return;
+        }
+
+        console.log('[Content] Handling stream message:', { isFirstChunk, isDone });
+        
+        const messagesContainer = document.getElementById('codeium-chat-messages');
+        if (!messagesContainer) {
+            console.error('[Content] Messages container not found');
+            return;
+        }
+
+        // 如果是新消息，创建新的消息元素
+        if (!currentAIMessage) {
+            currentAIMessage = document.createElement('div');
+            currentAIMessage.className = 'codeium-chat-message codeium-ai-message';
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'codeium-message-content';
+            currentAIMessage.appendChild(contentDiv);
+            messagesContainer.appendChild(currentAIMessage);
+        }
+
+        // 获取或创建内容div
+        const contentDiv = currentAIMessage.querySelector('.codeium-message-content');
+        if (!contentDiv) {
+            console.error('[Content] Content div not found');
+            return;
+        }
+
+        // 累积消息内容
+        contentDiv.textContent = (contentDiv.textContent || '') + message;
+
+        // 滚动到底部
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    } catch (error) {
+        console.error('[Content] Error handling stream message:', error);
     }
-
-    // 如果是新消息，创建新的消息元素
-    if (!currentAIMessage) {
-        currentAIMessage = document.createElement('div');
-        currentAIMessage.className = 'codeium-chat-message codeium-ai-message';
-        const contentDiv = document.createElement('div');
-        contentDiv.className = 'codeium-message-content';
-        currentAIMessage.appendChild(contentDiv);
-        messagesContainer.appendChild(currentAIMessage);
-    }
-
-    // 获取或创建内容div
-    const contentDiv = currentAIMessage.querySelector('.codeium-message-content');
-    if (!contentDiv) {
-        console.error('[Content] Content div not found');
-        return;
-    }
-
-    // 累积消息内容
-    contentDiv.textContent = (contentDiv.textContent || '') + message;
-
-    // 滚动到底部
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
 
 function handleStreamComplete() {
