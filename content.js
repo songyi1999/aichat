@@ -563,10 +563,20 @@ async function sendMessage(message) {
                     try {
                         console.log('[Content] Parsing markdown');
                         contentDiv.innerHTML = marked.parse(currentContent);
-                        // 应用代码高亮
-                        contentDiv.querySelectorAll('pre code').forEach((block) => {
-                            hljs.highlightBlock(block);
-                        });
+                        // 处理代码高亮
+                        const codeBlocks = contentDiv.querySelectorAll('pre code');
+                        if (codeBlocks.length > 0) {
+                            try {
+                                codeBlocks.forEach(block => {
+                                    if (window.hljs) {
+                                        // 使用新版本的highlight方法
+                                        window.hljs.highlightElement(block);
+                                    }
+                                });
+                            } catch (error) {
+                                console.error('[Content] Error highlighting code:', error);
+                            }
+                        }
                     } catch (error) {
                         console.error('Error parsing markdown:', error);
                         contentDiv.textContent = currentContent;
