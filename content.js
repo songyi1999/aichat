@@ -31,41 +31,41 @@ async function createChatInterface() {
 
         // 创建容器
         chatContainer = document.createElement('div');
-        chatContainer.id = 'ai-chat-container';
-        chatContainer.className = 'ai-chat-container';
+        chatContainer.id = 'codeium-chat-container';
+        chatContainer.className = 'codeium-chat-container';
         
         // 创建聊天界面HTML
         chatContainer.innerHTML = `
-            <div id="ai-chat-header">
+            <div id="codeium-chat-header">
                 <span>AI 智能助手</span>
-                <div id="ai-chat-controls">
-                    <button id="ai-chat-settings" title="设置">⚙️</button>
-                    <button id="ai-chat-close" title="关闭">×</button>
+                <div id="codeium-chat-controls">
+                    <button id="codeium-chat-settings" title="设置">⚙️</button>
+                    <button id="codeium-chat-close" title="关闭">×</button>
                 </div>
             </div>
-            <div id="ai-chat-resize-handle"></div>
-            <div id="ai-chat-messages"></div>
-            <div id="ai-chat-input">
-                <textarea id="ai-chat-input-text" placeholder="输入消息..."></textarea>
-                <button id="ai-chat-send-button" title="发送消息">发送</button>
+            <div id="codeium-chat-resize-handle"></div>
+            <div id="codeium-chat-messages"></div>
+            <div id="codeium-chat-input">
+                <textarea id="codeium-chat-input-text" placeholder="输入消息..."></textarea>
+                <button id="codeium-chat-send-button" title="发送消息">发送</button>
             </div>
-            <div id="ai-chat-settings-panel" style="display: none;">
+            <div id="codeium-chat-settings-panel" style="display: none;">
                 <h3>设置</h3>
-                <div class="settings-group">
-                    <label for="ai-base-url">API地址：</label>
-                    <input type="text" id="ai-base-url" placeholder="输入API地址">
+                <div class="codeium-settings-group">
+                    <label for="codeium-base-url">API地址：</label>
+                    <input type="text" id="codeium-base-url" placeholder="输入API地址">
                 </div>
-                <div class="settings-group">
-                    <label for="ai-api-key">API密钥：</label>
-                    <input type="password" id="ai-api-key" placeholder="输入API密钥">
+                <div class="codeium-settings-group">
+                    <label for="codeium-api-key">API密钥：</label>
+                    <input type="password" id="codeium-api-key" placeholder="输入API密钥">
                 </div>
-                <div class="settings-group">
-                    <label for="ai-model-name">模型名称：</label>
-                    <input type="text" id="ai-model-name" placeholder="输入模型名称">
+                <div class="codeium-settings-group">
+                    <label for="codeium-model-name">模型名称：</label>
+                    <input type="text" id="codeium-model-name" placeholder="输入模型名称">
                 </div>
-                <div class="settings-buttons">
-                    <button id="ai-save-settings">保存</button>
-                    <button id="ai-close-settings">取消</button>
+                <div class="codeium-settings-buttons">
+                    <button id="codeium-save-settings">保存</button>
+                    <button id="codeium-close-settings">取消</button>
                 </div>
             </div>
         `;
@@ -73,7 +73,7 @@ async function createChatInterface() {
         // 添加样式
         const style = document.createElement('style');
         style.textContent = `
-            #ai-chat-container {
+            #codeium-chat-container {
                 position: fixed;
                 top: 0;
                 right: 0;
@@ -89,9 +89,10 @@ async function createChatInterface() {
                 max-width: 800px;
                 resize: horizontal;
                 overflow: auto;
+                color:#000000;
             }
 
-            #ai-chat-resize-handle {
+            #codeium-chat-resize-handle {
                 position: absolute;
                 left: 0;
                 top: 0;
@@ -101,11 +102,11 @@ async function createChatInterface() {
                 cursor: ew-resize;
             }
 
-            #ai-chat-resize-handle:hover {
+            #codeium-chat-resize-handle:hover {
                 background: rgba(0, 123, 255, 0.3);
             }
 
-            #ai-chat-header {
+            #codeium-chat-header {
                 padding: 15px;
                 background: #f8f9fa;
                 border-bottom: 1px solid #dee2e6;
@@ -114,12 +115,12 @@ async function createChatInterface() {
                 align-items: center;
             }
 
-            #ai-chat-controls {
+            #codeium-chat-controls {
                 display: flex;
                 gap: 10px;
             }
 
-            #ai-chat-controls button {
+            #codeium-chat-controls button {
                 background: none;
                 border: none;
                 cursor: pointer;
@@ -127,20 +128,20 @@ async function createChatInterface() {
                 padding: 5px;
             }
 
-            #ai-chat-messages {
+            #codeium-chat-messages {
                 flex: 1;
                 overflow-y: auto;
                 padding: 15px;
             }
 
-            #ai-chat-input {
+            #codeium-chat-input {
                 padding: 15px;
                 border-top: 1px solid #dee2e6;
                 display: flex;
                 gap: 10px;
             }
 
-            #ai-chat-input-text {
+            #codeium-chat-input-text {
                 flex: 1;
                 padding: 8px;
                 border: 1px solid #dee2e6;
@@ -150,7 +151,7 @@ async function createChatInterface() {
                 font-family: inherit;
             }
 
-            #ai-chat-send-button {
+            #codeium-chat-send-button {
                 padding: 8px 16px;
                 background: #007bff;
                 color: white;
@@ -160,62 +161,98 @@ async function createChatInterface() {
                 font-size: 14px;
             }
 
-            #ai-chat-send-button:hover {
+            #codeium-chat-send-button:hover {
                 background: #0056b3;
             }
 
-            #ai-chat-send-button:disabled {
+            #codeium-chat-send-button:disabled {
                 background: #cccccc;
                 cursor: not-allowed;
             }
 
-            .ai-chat-message {
+            .codeium-chat-message {
                 margin-bottom: 15px;
                 padding: 10px;
                 border-radius: 8px;
                 max-width: 85%;
+                display: flex;
+                align-items: flex-start;
+                gap: 10px;
             }
 
-            .ai-chat-message .message-content {
-                white-space: pre-wrap;
-                word-break: break-word;
+            .codeium-message-avatar {
+                width: 32px;
+                height: 32px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 20px;
+                flex-shrink: 0;
             }
 
-            .ai-chat-message .message-content pre {
+            .codeium-user-message .codeium-message-avatar {
+                background: #007bff;
+                color: white;
+                order: 2;
+            }
+
+            .codeium-ai-message .codeium-message-avatar {
+                background: #f8f9fa;
+                border: 1px solid #dee2e6;
+                color: #28a745;
+            }
+
+            .codeium-message-content {
+                flex: 1;
+            }
+
+            .codeium-user-message {
+                margin-left: auto;
+                flex-direction: row-reverse;
+            }
+
+            .codeium-user-message .codeium-message-content {
+                background: #007bff;
+                color: white;
+                padding: 10px;
+                border-radius: 8px;
+            }
+
+            .codeium-ai-message {
+                margin-right: auto;
+            }
+
+            .codeium-ai-message .codeium-message-content {
+                background: #f8f9fa;
+                border: 1px solid #dee2e6;
+                padding: 10px;
+                border-radius: 8px;
+            }
+
+            .codeium-chat-message .codeium-message-content pre {
                 background: #f6f8fa;
                 padding: 10px;
                 border-radius: 4px;
                 overflow-x: auto;
             }
 
-            .ai-chat-message .message-content code {
+            .codeium-chat-message .codeium-message-content code {
                 font-family: 'Consolas', 'Monaco', monospace;
                 font-size: 0.9em;
             }
 
-            .user-message {
-                margin-left: auto;
-                background: #007bff;
-                color: white;
-            }
-
-            .user-message pre,
-            .user-message code {
+            .codeium-user-message .codeium-message-content pre,
+            .codeium-user-message .codeium-message-content code {
                 background: rgba(255, 255, 255, 0.1) !important;
                 color: white !important;
             }
 
-            .ai-message {
-                margin-right: auto;
-                background: #f8f9fa;
-                border: 1px solid #dee2e6;
-            }
-
-            .ai-message pre {
+            .codeium-ai-message .codeium-message-content pre {
                 border: 1px solid #e1e4e8;
             }
 
-            #ai-chat-settings-panel {
+            #codeium-chat-settings-panel {
                 position: absolute;
                 top: 50%;
                 left: 50%;
@@ -227,42 +264,42 @@ async function createChatInterface() {
                 z-index: 1000000;
             }
 
-            .settings-group {
+            .codeium-settings-group {
                 margin-bottom: 15px;
             }
 
-            .settings-group label {
+            .codeium-settings-group label {
                 display: block;
                 margin-bottom: 5px;
             }
 
-            .settings-group input {
+            .codeium-settings-group input {
                 width: 100%;
                 padding: 8px;
                 border: 1px solid #dee2e6;
                 border-radius: 4px;
             }
 
-            .settings-buttons {
+            .codeium-settings-buttons {
                 display: flex;
                 justify-content: flex-end;
                 gap: 10px;
                 margin-top: 20px;
             }
 
-            .settings-buttons button {
+            .codeium-settings-buttons button {
                 padding: 8px 16px;
                 border: none;
                 border-radius: 4px;
                 cursor: pointer;
             }
 
-            #ai-save-settings {
+            #codeium-save-settings {
                 background: #28a745;
                 color: white;
             }
 
-            #ai-close-settings {
+            #codeium-close-settings {
                 background: #dc3545;
                 color: white;
             }
@@ -274,7 +311,7 @@ async function createChatInterface() {
         console.log('[Content] Chat container and styles added to page');
 
         // 添加拖动调整大小功能
-        const resizeHandle = document.getElementById('ai-chat-resize-handle');
+        const resizeHandle = document.getElementById('codeium-chat-resize-handle');
         let isResizing = false;
         let startX, startWidth;
 
@@ -300,13 +337,13 @@ async function createChatInterface() {
 
         // 立即设置事件监听器
         console.log('[Content] Setting up event listeners');
-        const input = document.getElementById('ai-chat-input-text');
-        const sendButton = document.getElementById('ai-chat-send-button');
-        const closeButton = document.getElementById('ai-chat-close');
-        const settingsButton = document.getElementById('ai-chat-settings');
-        const settingsPanel = document.getElementById('ai-chat-settings-panel');
-        const saveSettingsButton = document.getElementById('ai-save-settings');
-        const closeSettingsButton = document.getElementById('ai-close-settings');
+        const input = document.getElementById('codeium-chat-input-text');
+        const sendButton = document.getElementById('codeium-chat-send-button');
+        const closeButton = document.getElementById('codeium-chat-close');
+        const settingsButton = document.getElementById('codeium-chat-settings');
+        const settingsPanel = document.getElementById('codeium-chat-settings-panel');
+        const saveSettingsButton = document.getElementById('codeium-save-settings');
+        const closeSettingsButton = document.getElementById('codeium-close-settings');
 
         // 发送消息处理函数
         function handleSendMessage(event) {
@@ -354,9 +391,9 @@ async function createChatInterface() {
             saveSettingsButton.onclick = () => {
                 console.log('[Content] Save settings button clicked');
                 apiSettings = {
-                    baseUrl: document.getElementById('ai-base-url').value.trim(),
-                    apiKey: document.getElementById('ai-api-key').value.trim(),
-                    modelName: document.getElementById('ai-model-name').value.trim()
+                    baseUrl: document.getElementById('codeium-base-url').value.trim(),
+                    apiKey: document.getElementById('codeium-api-key').value.trim(),
+                    modelName: document.getElementById('codeium-model-name').value.trim()
                 };
 
                 chrome.storage.sync.set({ apiSettings }, () => {
@@ -379,9 +416,9 @@ async function createChatInterface() {
         console.log('[Content] External libraries loaded');
 
         // 加载设置
-        const baseUrlInput = document.getElementById('ai-base-url');
-        const apiKeyInput = document.getElementById('ai-api-key');
-        const modelNameInput = document.getElementById('ai-model-name');
+        const baseUrlInput = document.getElementById('codeium-base-url');
+        const apiKeyInput = document.getElementById('codeium-api-key');
+        const modelNameInput = document.getElementById('codeium-model-name');
 
         if (baseUrlInput && apiKeyInput && modelNameInput) {
             baseUrlInput.value = apiSettings.baseUrl;
@@ -436,8 +473,8 @@ async function loadExternalLibraries() {
 async function sendMessage(message) {
     console.log('[Content] Starting sendMessage with:', message);
     
-    const input = document.getElementById('ai-chat-input-text');
-    const sendButton = document.getElementById('ai-chat-send-button');
+    const input = document.getElementById('codeium-chat-input-text');
+    const sendButton = document.getElementById('codeium-chat-send-button');
     
     // 禁用输入和发送按钮
     input.disabled = true;
@@ -493,10 +530,10 @@ async function sendMessage(message) {
                 currentContent += response.content;
                 
                 // 更新最后一条AI消息
-                const messagesContainer = document.getElementById('ai-chat-messages');
+                const messagesContainer = document.getElementById('codeium-chat-messages');
                 const lastMessage = messagesContainer.lastElementChild;
-                if (lastMessage && lastMessage.classList.contains('ai-message')) {
-                    const contentDiv = lastMessage.querySelector('.message-content');
+                if (lastMessage && lastMessage.classList.contains('codeium-ai-message')) {
+                    const contentDiv = lastMessage.querySelector('.codeium-message-content');
                     try {
                         console.log('[Content] Parsing markdown');
                         contentDiv.innerHTML = marked.parse(currentContent);
@@ -590,18 +627,24 @@ ${content}
 // 添加消息到聊天界面
 function addMessage(sender, content) {
     console.log('[Content] Adding message from:', sender);
-    const messagesContainer = document.getElementById('ai-chat-messages');
+    const messagesContainer = document.getElementById('codeium-chat-messages');
     if (!messagesContainer) {
         console.error('[Content] Messages container not found');
         return;
     }
 
     const messageDiv = document.createElement('div');
-    messageDiv.className = `ai-chat-message ${sender.toLowerCase()}-message`;
+    messageDiv.className = `codeium-chat-message codeium-${sender.toLowerCase()}-message`;
+    
+    // 创建头像
+    const avatarDiv = document.createElement('div');
+    avatarDiv.className = 'codeium-message-avatar';
+    avatarDiv.textContent = sender === 'AI' ? '🤖' : '👤';
+    messageDiv.appendChild(avatarDiv);
     
     // 创建内容div
     const contentDiv = document.createElement('div');
-    contentDiv.className = 'message-content';
+    contentDiv.className = 'codeium-message-content';
     messageDiv.appendChild(contentDiv);
     
     // 使用marked.js处理Markdown
@@ -644,7 +687,7 @@ let currentAIMessage = null;
 function handleStreamMessage(message) {
     console.log('[Content] Received stream chunk:', message);
     
-    const messagesContainer = document.getElementById('ai-chat-messages');
+    const messagesContainer = document.getElementById('codeium-chat-messages');
     if (!messagesContainer) {
         console.error('[Content] Messages container not found');
         return;
@@ -653,15 +696,15 @@ function handleStreamMessage(message) {
     // 如果是新消息，创建新的消息元素
     if (!currentAIMessage) {
         currentAIMessage = document.createElement('div');
-        currentAIMessage.className = 'ai-chat-message ai-message';
+        currentAIMessage.className = 'codeium-chat-message codeium-ai-message';
         const contentDiv = document.createElement('div');
-        contentDiv.className = 'message-content';
+        contentDiv.className = 'codeium-message-content';
         currentAIMessage.appendChild(contentDiv);
         messagesContainer.appendChild(currentAIMessage);
     }
 
     // 获取或创建内容div
-    const contentDiv = currentAIMessage.querySelector('.message-content');
+    const contentDiv = currentAIMessage.querySelector('.codeium-message-content');
     if (!contentDiv) {
         console.error('[Content] Content div not found');
         return;
@@ -677,7 +720,7 @@ function handleStreamMessage(message) {
 function handleStreamComplete() {
     console.log('[Content] Stream completed');
     if (currentAIMessage) {
-        const contentDiv = currentAIMessage.querySelector('.message-content');
+        const contentDiv = currentAIMessage.querySelector('.codeium-message-content');
         if (contentDiv) {
             console.log('[Content] Parsing markdown');
             try {
