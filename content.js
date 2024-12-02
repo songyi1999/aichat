@@ -16,10 +16,10 @@ const presetQuestions = [
 // 初始化设置
 function initializeSettings() {
     return new Promise((resolve) => {
-        chrome.storage.sync.get(['apiSettings'], function(result) {
-            if (result.apiSettings) {
-                apiSettings = result.apiSettings;
-                console.log('Loaded stored settings');
+        chrome.runtime.sendMessage({ action: 'getDefaultSettings' }, function(settings) {
+            if (settings) {
+                apiSettings = settings;
+                console.log('[Content] Loaded settings from background');
             }
             resolve();
         });
@@ -424,23 +424,35 @@ async function createChatInterface() {
         if (settingsButton && settingsPanel) {
             settingsButton.onclick = () => {
                 console.log('[Content] Settings button clicked');
-                settingsPanel.style.display = settingsPanel.style.display === 'none' ? 'block' : 'none';
+                settingsPanel.style.display = 'block';
+                loadSettingsIntoPanel();
             };
         }
 
         if (saveSettingsButton) {
             saveSettingsButton.onclick = () => {
                 console.log('[Content] Save settings button clicked');
-                apiSettings = {
+                const newSettings = {
                     baseUrl: document.getElementById('codeium-base-url').value.trim(),
                     apiKey: document.getElementById('codeium-api-key').value.trim(),
                     modelName: document.getElementById('codeium-model-name').value.trim()
                 };
 
-                chrome.storage.sync.set({ apiSettings }, () => {
-                    console.log('[Content] Settings saved');
-                    settingsPanel.style.display = 'none';
-                });
+                // 只有当所有字段都填写时才保存
+                if (newSettings.baseUrl && newSettings.apiKey && newSettings.modelName) {
+                    chrome.runtime.sendMessage({ 
+                        action: 'saveSettings',
+                        settings: newSettings
+                    }, function(response) {
+                        if (response.success) {
+                            apiSettings = newSettings;
+                            settingsPanel.style.display = 'none';
+                            console.log('[Content] Settings saved successfully');
+                        }
+                    });
+                } else {
+                    console.log('[Content] Settings validation failed - empty fields');
+                }
             };
         }
 
@@ -462,10 +474,20 @@ async function createChatInterface() {
         const modelNameInput = document.getElementById('codeium-model-name');
 
         if (baseUrlInput && apiKeyInput && modelNameInput) {
-            baseUrlInput.value = apiSettings.baseUrl;
-            apiKeyInput.value = apiSettings.apiKey;
-            modelNameInput.value = apiSettings.modelName;
-            console.log('[Content] Settings loaded into panel');
+            chrome.runtime.sendMessage({ action: 'getSettings' }, function(settings) {
+                // 只显示已保存的设置，不显示默认设置
+                if (settings) {
+                    baseUrlInput.value = settings.baseUrl || '';
+                    apiKeyInput.value = settings.apiKey || '';
+                    modelNameInput.value = settings.modelName || '';
+                    console.log('[Content] Saved settings loaded into panel');
+                } else {
+                    baseUrlInput.value = '';
+                    apiKeyInput.value = '';
+                    modelNameInput.value = '';
+                    console.log('[Content] No saved settings found, showing empty fields');
+                }
+            });
         } else {
             console.error('[Content] Settings panel elements not found');
         }
@@ -864,5 +886,32 @@ function handleBackgroundMessage(message) {
             port.disconnect();
             port = null;
         }
+    }
+}
+
+// 加载设置到面板
+function loadSettingsIntoPanel() {
+    console.log('[Content] Loading settings into panel');
+    const baseUrlInput = document.getElementById('codeium-base-url');
+    const apiKeyInput = document.getElementById('codeium-api-key');
+    const modelNameInput = document.getElementById('codeium-model-name');
+
+    if (baseUrlInput && apiKeyInput && modelNameInput) {
+        chrome.runtime.sendMessage({ action: 'getSettings' }, function(settings) {
+            // 只显示已保存的设置，不显示默认设置
+            if (settings) {
+                baseUrlInput.value = settings.baseUrl || '';
+                apiKeyInput.value = settings.apiKey || '';
+                modelNameInput.value = settings.modelName || '';
+                console.log('[Content] Saved settings loaded into panel');
+            } else {
+                baseUrlInput.value = '';
+                apiKeyInput.value = '';
+                modelNameInput.value = '';
+                console.log('[Content] No saved settings found, showing empty fields');
+            }
+        });
+    } else {
+        console.error('[Content] Settings panel elements not found');
     }
 }

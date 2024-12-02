@@ -7,9 +7,9 @@ const defaultSettings = {
 
 // 监听扩展安装事件
 chrome.runtime.onInstalled.addListener(() => {
-    console.log('[Background] Extension installed, setting default API settings');
+    console.log('[Background] Extension installed');
     chrome.storage.sync.set({
-        apiSettings: defaultSettings
+        apiSettings: {}  // 首次安装时设置为空对象
     });
 });
 
@@ -118,6 +118,44 @@ async function handleApiRequest(data, port) {
         port.postMessage({ error: error.message });
     }
 }
+
+// 监听来自content script的消息
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    console.log('[Background] Received message:', request.action);
+    
+    if (request.action === 'getSettings') {
+        chrome.storage.sync.get(['apiSettings'], function(result) {
+            // 只返回已保存的设置，不返回默认设置
+            sendResponse(result.apiSettings || {});
+        });
+        return true; // 保持消息通道开启
+    }
+    
+    if (request.action === 'saveSettings') {
+        // 验证并保存新设置
+        const validatedSettings = validateApiSettings(request.settings);
+        chrome.storage.sync.set({
+            apiSettings: validatedSettings
+        }, function() {
+            sendResponse({ success: true });
+        });
+        return true; // 保持消息通道开启
+    }
+
+    // 获取有效的设置（已保存的设置或默认设置）
+    if (request.action === 'getDefaultSettings') {
+        chrome.storage.sync.get(['apiSettings'], function(result) {
+            const settings = result.apiSettings || {};
+            // 只有当设置完全为空或缺少必要字段时才使用默认设置
+            if (!settings.baseUrl || !settings.apiKey || !settings.modelName) {
+                sendResponse(defaultSettings);
+            } else {
+                sendResponse(settings);
+            }
+        });
+        return true;
+    }
+});
 
 // 监听长连接
 chrome.runtime.onConnect.addListener(function(port) {
