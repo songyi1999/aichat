@@ -1,6 +1,6 @@
 // 默认设置
 const defaultSettings = {
-    baseUrl: 'http://openai.sz-hgy.com:9002/v1',
+    baseUrl: 'https://openai.sz-hgy.com:9003/v1',
     apiKey: 'sk-0zw5FQaOueD5CEhL54D945C50cB04845A46eB1F5Be9cFd3f',
     modelName: 'glm4'
 };
