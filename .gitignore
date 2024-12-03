@@ -38,6 +38,9 @@ yarn-error.log*
 *.swp
 *~
 
+360.*
+360/
+
 # 调试文件
 debug/
 .chrome/
