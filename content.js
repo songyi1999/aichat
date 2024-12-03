@@ -13,6 +13,80 @@ const presetQuestions = [
     "解释下这段内容"
 ];
 
+// 邮件相关的预设问题
+const emailPresetQuestions = [
+    "帮我回复这封邮件",
+    "总结这封邮件的重点",
+    "用更专业的语气重写这封邮件",
+    "翻译这封邮件",
+    "检查邮件的语法和表达"
+];
+
+// 检测当前是否在邮件页面
+function isEmailPage() {
+    const hostname = window.location.hostname;
+    return hostname.includes('mail.qq.com') || 
+           hostname.includes('mail.163.com') || 
+           hostname.includes('mail.126.com') ||
+           hostname.includes('outlook') ||
+           hostname.includes('mail.google.com');
+}
+
+// 获取邮件内容
+function getEmailContent() {
+    let emailContent = '';
+    
+    if (window.location.hostname.includes('mail.qq.com')) {
+        // QQ邮箱
+        const frame = document.querySelector('#mainFrame');
+        if (frame && frame.contentDocument) {
+            const contentElement = frame.contentDocument.querySelector('#contentDiv');
+            if (contentElement) {
+                emailContent = contentElement.innerText;
+            }
+        }
+    } else if (window.location.hostname.includes('mail.163.com') || 
+               window.location.hostname.includes('mail.126.com')) {
+        // 163/126邮箱
+        const contentElement = document.querySelector('.netease-mail-content');
+        if (contentElement) {
+            emailContent = contentElement.innerText;
+        }
+    } else if (window.location.hostname.includes('outlook')) {
+        // Outlook
+        const contentElement = document.querySelector('[role="main"]');
+        if (contentElement) {
+            emailContent = contentElement.innerText;
+        }
+    }
+    
+    return emailContent;
+}
+
+// 插入AI建议的回复内容
+function insertReply(content) {
+    if (window.location.hostname.includes('mail.qq.com')) {
+        const frame = document.querySelector('#mainFrame');
+        if (frame && frame.contentDocument) {
+            const editor = frame.contentDocument.querySelector('#QMEditorArea');
+            if (editor) {
+                editor.innerHTML = content;
+            }
+        }
+    } else if (window.location.hostname.includes('mail.163.com') || 
+               window.location.hostname.includes('mail.126.com')) {
+        const editor = document.querySelector('.APP-editor-iframe');
+        if (editor && editor.contentDocument) {
+            editor.contentDocument.body.innerHTML = content;
+        }
+    } else if (window.location.hostname.includes('outlook')) {
+        const editor = document.querySelector('[role="textbox"]');
+        if (editor) {
+            editor.innerHTML = content;
+        }
+    }
+}
+
 // 初始化设置
 function initializeSettings() {
     return new Promise((resolve) => {
@@ -494,6 +568,9 @@ async function createChatInterface() {
 
         // 添加预设问题
         const presetQuestionsContainer = document.getElementById('codeium-chat-preset-questions');
+        if (isEmailPage()) {
+            presetQuestions.push(...emailPresetQuestions);
+        }
         presetQuestions.forEach(question => {
             const link = document.createElement('a');
             link.className = 'preset-question-link';
@@ -669,6 +746,17 @@ async function sendMessage(message) {
         });
         console.log('[Content] Message sent to background');
 
+        // 如果是邮件相关的请求，添加邮件内容到上下文
+        if (isEmailPage() && message.includes('邮件')) {
+            const emailContent = getEmailContent();
+            message = `上下文：以下是邮件内容：\n${emailContent}\n\n用户请求：${message}`;
+        }
+
+        // 如果是请求回复邮件，将AI回复插入到编辑器
+        // 移除这里的直接插入代码，因为响应还未完成
+        // if (message.includes('回复这封邮件') || message.includes('重写这封邮件')) {
+        //     insertReply(response);
+        // }
     } catch (error) {
         console.error('[Content] Error in sendMessage:', error);
         addMessage('system', `Error: ${error.message}`);
@@ -913,5 +1001,166 @@ function loadSettingsIntoPanel() {
         });
     } else {
         console.error('[Content] Settings panel elements not found');
+    }
+}
+
+let currentStreamResponse = ''; // 添加变量存储完整的流式响应
+
+// 处理流式消息
+function handleStreamMessage(message, isFirstChunk = false, isDone = false) {
+    if (isFirstChunk) {
+        currentStreamResponse = ''; // 重置响应内容
+    }
+    
+    if (message) {
+        currentStreamResponse += message; // 累积响应内容
+        const messageElement = document.querySelector('.message-content.loading');
+        if (messageElement) {
+            messageElement.innerHTML = marked.parse(currentStreamResponse);
+            messageElement.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }
+    }
+
+    if (isDone) {
+        const messageElement = document.querySelector('.message-content.loading');
+        if (messageElement) {
+            messageElement.classList.remove('loading');
+        }
+        
+        // 检查是否需要插入邮件回复
+        const lastUserMessage = document.querySelector('.message.user:last-child .message-content');
+        if (lastUserMessage && 
+            (lastUserMessage.textContent.includes('回复这封邮件') || 
+             lastUserMessage.textContent.includes('重写这封邮件'))) {
+            insertReply(currentStreamResponse);
+        }
+    }
+}
+
+// 修改发送消息函数
+async function sendMessage(message) {
+    console.log('[Content] Starting sendMessage with:', message);
+    
+    const input = document.getElementById('codeium-chat-input-text');
+    const sendButton = document.getElementById('codeium-chat-send-button');
+    
+    // 禁用输入和发送按钮
+    input.disabled = true;
+    sendButton.disabled = true;
+
+    try {
+        console.log('[Content] Adding user message to UI');
+        // 添加用户消息
+        addMessage('user', message);
+
+        console.log('[Content] Getting page content');
+        // 获取页面内容
+        const pageContent = getPageContent();
+        console.log('[Content] Page content length:', pageContent.length);
+
+        // 准备消息历史
+        const messages = [
+            {
+                role: "system",
+                content: "你是一个helpful的AI助手。以下是当前网页的内容，请基于这些内容回答用户的问题：\n\n" + pageContent
+            },
+            {
+                role: "user",
+                content: message
+            }
+        ];
+        console.log('[Content] Prepared messages:', messages);
+
+        console.log('[Content] Adding empty AI message to UI');
+        // 创建一个空的AI消息
+        addMessage('AI', '');
+
+        console.log('[Content] Creating port connection');
+        // 创建一个端口连接
+        const port = chrome.runtime.connect({ name: 'ai-chat' });
+        console.log('[Content] Port connection created');
+
+        let currentContent = '';
+
+        // 监听来自background的消息
+        port.onMessage.addListener(function(response) {
+            console.log('[Content] Received message from background:', response);
+            
+            if (response.error) {
+                console.error('[Content] Error from background:', response.error);
+                addMessage('system', `Error: ${response.error}`);
+                return;
+            }
+
+            if (response.type === 'stream') {
+                console.log('[Content] Received stream chunk:', response.content);
+                // 追加新内容
+                currentContent += response.content;
+                
+                // 更新最后一条AI消息
+                const messagesContainer = document.getElementById('codeium-chat-messages');
+                const lastMessage = messagesContainer.lastElementChild;
+                if (lastMessage && lastMessage.classList.contains('codeium-ai-message')) {
+                    const contentDiv = lastMessage.querySelector('.codeium-message-content');
+                    try {
+                        console.log('[Content] Parsing markdown');
+                        contentDiv.innerHTML = marked.parse(currentContent);
+                        // 处理代码高亮
+                        const codeBlocks = contentDiv.querySelectorAll('pre code');
+                        if (codeBlocks.length > 0) {
+                            try {
+                                codeBlocks.forEach(block => {
+                                    if (window.hljs) {
+                                        // 使用新版本的highlight方法
+                                        window.hljs.highlightElement(block);
+                                    }
+                                });
+                            } catch (error) {
+                                console.error('[Content] Error highlighting code:', error);
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error parsing markdown:', error);
+                        contentDiv.textContent = currentContent;
+                    }
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                }
+            } else if (response.type === 'done') {
+                console.log('[Content] Stream completed, disconnecting port');
+                port.disconnect();
+            }
+        });
+
+        console.log('[Content] Sending message to background');
+        // 发送消息到background
+        port.postMessage({
+            action: 'makeApiRequest',
+            data: {
+                baseUrl: apiSettings.baseUrl,
+                apiKey: apiSettings.apiKey,
+                modelName: apiSettings.modelName,
+                messages: messages
+            }
+        });
+        console.log('[Content] Message sent to background');
+
+        // 如果是邮件相关的请求，添加邮件内容到上下文
+        if (isEmailPage() && message.includes('邮件')) {
+            const emailContent = getEmailContent();
+            message = `上下文：以下是邮件内容：\n${emailContent}\n\n用户请求：${message}`;
+        }
+
+        // 移除这里的直接插入代码，因为响应还未完成
+        // if (message.includes('回复这封邮件') || message.includes('重写这封邮件')) {
+        //     insertReply(response);
+        // }
+    } catch (error) {
+        console.error('[Content] Error in sendMessage:', error);
+        addMessage('system', `Error: ${error.message}`);
+    } finally {
+        console.log('[Content] Re-enabling input and send button');
+        // 重新启用输入和发送按钮
+        input.disabled = false;
+        sendButton.disabled = false;
     }
 }
