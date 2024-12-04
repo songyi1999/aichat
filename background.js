@@ -24,16 +24,26 @@ chrome.action.onClicked.addListener((tab) => {
 // 检查和补充API设置
 function validateApiSettings(settings) {
     console.log('[Background] Validating API settings:', { ...settings, apiKey: '******' });
-    if (!settings.baseUrl || !settings.apiKey || !settings.modelName) {
-        console.log('[Background] Using default settings for missing values');
-        return {
-            baseUrl: settings.baseUrl || defaultSettings.baseUrl,
-            apiKey: settings.apiKey || defaultSettings.apiKey,
-            modelName: settings.modelName || defaultSettings.modelName,
-            systemPrompt: settings.systemPrompt || defaultSettings.systemPrompt
-        };
-    }
-    return settings;
+    
+    // 获取已保存的设置
+    return new Promise((resolve) => {
+        chrome.storage.local.get(['apiSettings', 'systemPrompt'], function(result) {
+            const savedSettings = {
+                ...result.apiSettings,
+                systemPrompt: result.systemPrompt
+            };
+            
+            // 优先使用保存的设置，其次是传入的设置，最后是默认设置
+            const finalSettings = {
+                baseUrl: savedSettings.baseUrl || settings.baseUrl || defaultSettings.baseUrl,
+                apiKey: savedSettings.apiKey || settings.apiKey || defaultSettings.apiKey,
+                modelName: savedSettings.modelName || settings.modelName || defaultSettings.modelName,
+                systemPrompt: savedSettings.systemPrompt || settings.systemPrompt || defaultSettings.systemPrompt
+            };
+            
+            resolve(finalSettings);
+        });
+    });
 }
 
 // 处理API请求
@@ -41,13 +51,22 @@ async function handleApiRequest(data, port) {
     console.log('[Background] Handling API request');
     try {
         // 验证并补充API设置
-        const validatedSettings = validateApiSettings(data);
+        const validatedSettings = await validateApiSettings(data);
         console.log('[Background] Making API request with settings:', {
             baseUrl: validatedSettings.baseUrl,
             modelName: validatedSettings.modelName,
-            apiKey: '******', 
+            apiKey: '******',
             systemPrompt: validatedSettings.systemPrompt
         });
+
+        // 确保消息中包含系统提示词
+        const messages = [...data.messages];
+        if (!messages.find(msg => msg.role === 'system')) {
+            messages.unshift({
+                role: 'system',
+                content: validatedSettings.systemPrompt
+            });
+        }
 
         console.log('[Background] Sending fetch request to:', `${validatedSettings.baseUrl}/chat/completions`);
         const response = await fetch(`${validatedSettings.baseUrl}/chat/completions`, {
@@ -58,7 +77,7 @@ async function handleApiRequest(data, port) {
             },
             body: JSON.stringify({
                 model: validatedSettings.modelName,
-                messages: data.messages,
+                messages: messages,
                 stream: true
             })
         });
@@ -191,6 +210,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             sendResponse(settings);
         });
         return true;
+    }
+
+    if (request.action === 'downloadFile') {
+        chrome.downloads.download({
+            url: request.data.url,
+            filename: request.data.filename,
+            saveAs: true
+        });
     }
 });
 

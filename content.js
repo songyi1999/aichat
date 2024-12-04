@@ -124,6 +124,7 @@ async function createChatInterface() {
                 <span>AI 智能助手</span>
                 <div id="codeium-chat-controls">
                     <button id="codeium-chat-settings" title="设置">⚙️</button>
+                    <button id="codeium-chat-history-button" title="历史记录">💾</button>
                     <button id="codeium-chat-close" title="关闭">×</button>
                 </div>
             </div>
@@ -463,6 +464,7 @@ async function createChatInterface() {
         const sendButton = document.getElementById('codeium-chat-send-button');
         const closeButton = document.getElementById('codeium-chat-close');
         const settingsButton = document.getElementById('codeium-chat-settings');
+        const historyButton = document.getElementById('codeium-chat-history-button');
         const settingsPanel = document.getElementById('codeium-chat-settings-panel');
         const saveSettingsButton = document.getElementById('codeium-save-settings');
         const closeSettingsButton = document.getElementById('codeium-close-settings');
@@ -520,58 +522,15 @@ async function createChatInterface() {
             };
         }
 
-        if (saveSettingsButton) {
-            saveSettingsButton.onclick = function() {
-                const newSettings = {
-                    baseUrl: document.getElementById('codeium-base-url').value.trim(),
-                    apiKey: document.getElementById('codeium-api-key').value.trim(),
-                    modelName: document.getElementById('codeium-model-name').value.trim(),
-                    systemPrompt: document.getElementById('codeium-system-prompt').value.trim()
-                };
-
-                // 检查是否有任何设置需要保存
-                const hasApiSettings = newSettings.baseUrl || newSettings.apiKey || newSettings.modelName;
-                const hasSystemPrompt = newSettings.systemPrompt !== undefined;
-
-                if (!hasApiSettings && !hasSystemPrompt) {
-                    console.log('[Content] No settings to save');
-                    return;
-                }
-
-                // 验证API设置的完整性
-                if (hasApiSettings) {
-                    if (!newSettings.baseUrl || !newSettings.apiKey || !newSettings.modelName) {
-                        alert('如果要保存API设置，请填写完整的Base URL、API Key和Model Name');
-                        return;
-                    }
-                }
-
-                // 发送保存请求
-                chrome.runtime.sendMessage({
-                    action: 'saveSettings',
-                    settings: newSettings
-                }, function(response) {
-                    if (response.success) {
-                        // 更新全局设置
-                        if (hasApiSettings) {
-                            apiSettings.baseUrl = newSettings.baseUrl;
-                            apiSettings.apiKey = newSettings.apiKey;
-                            apiSettings.modelName = newSettings.modelName;
-                        }
-                        if (hasSystemPrompt) {
-                            apiSettings.systemPrompt = newSettings.systemPrompt;
-                        }
-                        
-                        // 关闭设置面板
-                        const settingsPanel = document.getElementById('codeium-chat-settings-panel');
-                        if (settingsPanel) {
-                            settingsPanel.style.display = 'none';
-                        }
-                        
-                        console.log('[Content] Settings saved successfully');
-                    }
-                });
+        if (historyButton) {
+            historyButton.onclick = () => {
+                console.log('[Content] History button clicked');
+                showHistoryPanel();
             };
+        }
+
+        if (saveSettingsButton) {
+            saveSettingsButton.onclick = handleSettingsSave;
         }
 
         if (closeSettingsButton) {
@@ -579,38 +538,6 @@ async function createChatInterface() {
                 console.log('[Content] Close settings button clicked');
                 settingsPanel.style.display = 'none';
             };
-        }
-
-        // 加载外部库
-        console.log('[Content] Loading external libraries');
-        await loadExternalLibraries();
-        console.log('[Content] External libraries loaded');
-
-        // 加载设置
-        const baseUrlInput = document.getElementById('codeium-base-url');
-        const apiKeyInput = document.getElementById('codeium-api-key');
-        const modelNameInput = document.getElementById('codeium-model-name');
-        const systemPromptInput = document.getElementById('codeium-system-prompt');
-
-        if (baseUrlInput && apiKeyInput && modelNameInput && systemPromptInput) {
-            chrome.runtime.sendMessage({ action: 'getSettings' }, function(settings) {
-                // 只显示已保存的设置，不显示默认设置
-                if (settings) {
-                    baseUrlInput.value = settings.baseUrl || '';
-                    apiKeyInput.value = settings.apiKey || '';
-                    modelNameInput.value = settings.modelName || '';
-                    systemPromptInput.value = settings.systemPrompt || '';
-                    console.log('[Content] Saved settings loaded into panel');
-                } else {
-                    baseUrlInput.value = '';
-                    apiKeyInput.value = '';
-                    modelNameInput.value = '';
-                    systemPromptInput.value = '';
-                    console.log('[Content] No saved settings found, showing empty fields');
-                }
-            });
-        } else {
-            console.error('[Content] Settings panel elements not found');
         }
 
         // 添加预设问题
@@ -698,6 +625,9 @@ async function sendMessage(message) {
     sendButton.disabled = true;
 
     try {
+        // Save user message to history
+        await chatHistoryManager.addChat(message, 'user', window.location.href);
+        
         console.log('[Content] Adding user message to UI');
         // 添加用户消息
         addMessage('user', message);
@@ -777,6 +707,8 @@ async function sendMessage(message) {
                     messagesContainer.scrollTop = messagesContainer.scrollHeight;
                 }
             } else if (response.type === 'done') {
+                // Save AI response to history
+                chatHistoryManager.addChat(currentContent, 'AI', window.location.href);
                 console.log('[Content] Stream completed, disconnecting port');
                 port.disconnect();
             }
@@ -874,7 +806,7 @@ ${content}
 }
 
 // 添加消息到聊天界面
-function addMessage(sender, content) {
+async  function addMessage(sender, content) {
     console.log('[Content] Adding message from:', sender);
     const messagesContainer = document.getElementById('codeium-chat-messages');
     if (!messagesContainer) {
@@ -899,9 +831,12 @@ function addMessage(sender, content) {
     // 使用marked.js处理Markdown
     try {
         // 确保marked和hljs已经加载
-        if (!window.marked || !window.hljs) {
-            throw new Error('Libraries not loaded');
-        }
+       
+       const librariesLoaded = await checkAndLoadLibraries();
+       if (!librariesLoaded) {
+           console.error('[Content] Cannot render message: Libraries not loaded');
+           return;
+       }
 
         // 配置marked使用highlight.js
         window.marked.setOptions({
@@ -1094,6 +1029,9 @@ async function sendMessage(message) {
     sendButton.disabled = true;
 
     try {
+        // Save user message to history
+        await chatHistoryManager.addChat(message, 'user', window.location.href);
+        
         console.log('[Content] Adding user message to UI');
         // 添加用户消息
         addMessage('user', message);
@@ -1173,6 +1111,8 @@ async function sendMessage(message) {
                     messagesContainer.scrollTop = messagesContainer.scrollHeight;
                 }
             } else if (response.type === 'done') {
+                // Save AI response to history
+                chatHistoryManager.addChat(currentContent, 'AI', window.location.href);
                 console.log('[Content] Stream completed, disconnecting port');
                 port.disconnect();
             }
@@ -1285,4 +1225,145 @@ function handleSettingsSave() {
     });
 }
 
-document.getElementById('codeium-save-settings').onclick = handleSettingsSave;
+// document.getElementById('codeium-save-settings').onclick = handleSettingsSave;
+
+// Add history panel UI and functions
+function createHistoryPanel() {
+    const panel = document.createElement('div');
+    panel.id = 'codeium-chat-history-panel';
+    panel.className = 'codeium-panel';
+    panel.style.display = 'none';
+    
+    panel.innerHTML = `
+        <div class="codeium-history-header">
+            <h3>聊天记录</h3>
+            <div class="codeium-history-actions">
+                <button id="codeium-export-json">导出JSON</button>
+                <button id="codeium-export-csv">导出CSV</button>
+                <button id="codeium-delete-selected">删除选中</button>
+                <button id="codeium-close-history">关闭</button>
+            </div>
+        </div>
+        <div class="codeium-history-list"></div>
+    `;
+    
+    document.body.appendChild(panel);
+    
+    // Add event listeners
+    document.getElementById('codeium-export-json').onclick = () => exportHistory('json');
+    document.getElementById('codeium-export-csv').onclick = () => exportHistory('csv');
+    document.getElementById('codeium-delete-selected').onclick = deleteSelectedChats;
+    document.getElementById('codeium-close-history').onclick = () => panel.style.display = 'none';
+    
+    return panel;
+}
+
+async function showHistoryPanel() {
+    const panel = document.getElementById('codeium-chat-history-panel') || createHistoryPanel();
+    panel.style.display = 'block';
+    
+    // Load and display history
+    const history = await chatHistoryManager.getHistory();
+    const listContainer = panel.querySelector('.codeium-history-list');
+    listContainer.innerHTML = '';
+    
+    history.forEach(chat => {
+        const chatElement = document.createElement('div');
+        chatElement.className = 'codeium-history-item';
+        chatElement.innerHTML = `
+            <input type="checkbox" data-timestamp="${chat.timestamp}">
+            <div class="codeium-history-content">
+                <div class="codeium-history-meta">
+                    <span>${new Date(chat.timestamp).toLocaleString()}</span>
+                    <span>${chat.role}</span>
+                    <a href="${chat.url}" target="_blank">🔗</a>
+                </div>
+                <div class="codeium-history-text">${chat.content}</div>
+            </div>
+        `;
+        listContainer.appendChild(chatElement);
+    });
+}
+
+async function exportHistory(format) {
+    const content = await chatHistoryManager.exportHistory(format);
+    // Send message to background script to handle download
+    chrome.runtime.sendMessage({
+        action: 'downloadFile',
+        data: {
+            url: URL.createObjectURL(new Blob([content], { type: format === 'json' ? 'application/json' : 'text/csv' })),
+            filename: `chat-history.${format}`
+        }
+    });
+}
+
+async function deleteSelectedChats() {
+    const selected = Array.from(document.querySelectorAll('#codeium-chat-history-panel input[type="checkbox"]:checked'))
+        .map(checkbox => checkbox.dataset.timestamp);
+    
+    if (selected.length === 0) return;
+    
+    if (confirm(`确定要删除选中的 ${selected.length} 条记录吗？`)) {
+        await chatHistoryManager.deleteChats(selected);
+        showHistoryPanel(); // Refresh the panel
+    }
+}
+
+// Add styles for history panel
+const historyStyles = `
+    #codeium-chat-history-panel {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 80%;
+        max-width: 800px;
+        max-height: 80vh;
+        background: white;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        padding: 20px;
+        z-index: 10000;
+        overflow-y: auto;
+    }
+    
+    .codeium-history-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+    
+    .codeium-history-actions {
+        display: flex;
+        gap: 10px;
+    }
+    
+    .codeium-history-item {
+        display: flex;
+        gap: 10px;
+        padding: 10px;
+        border-bottom: 1px solid #eee;
+    }
+    
+    .codeium-history-content {
+        flex: 1;
+    }
+    
+    .codeium-history-meta {
+        display: flex;
+        gap: 10px;
+        color: #666;
+        font-size: 0.9em;
+        margin-bottom: 5px;
+    }
+    
+    .codeium-history-text {
+        white-space: pre-wrap;
+    }
+`;
+
+// Add styles to the page
+const styleSheet = document.createElement('style');
+styleSheet.textContent = historyStyles;
+document.head.appendChild(styleSheet);
