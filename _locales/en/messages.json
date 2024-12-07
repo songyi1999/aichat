@@ -1,0 +1,74 @@
+{
+    "extName": {
+        "message": "AI Chat Assistant",
+        "description": "Extension name"
+    },
+    "extDescription": {
+        "message": "An AI-powered chat assistant for web browsing",
+        "description": "Extension description"
+    },
+    "extTitle": {
+        "message": "AI Chat",
+        "description": "Extension title in toolbar"
+    },
+    "assistant": {
+        "message": "AI Assistant",
+        "description": "Chat window title"
+    },
+    "settings": {
+        "message": "Settings",
+        "description": "Settings button text"
+    },
+    "close": {
+        "message": "Close",
+        "description": "Close button text"
+    },
+    "inputPlaceholder": {
+        "message": "Type a message...",
+        "description": "Input placeholder text"
+    },
+    "send": {
+        "message": "Send",
+        "description": "Send button text"
+    },
+    "welcomeMessage": {
+        "message": "👋 Hi! I'm your AI assistant. How can I help you today?",
+        "description": "Welcome message"
+    },
+    "presetQuestion1": {
+        "message": "Summarize this page",
+        "description": "Preset question 1"
+    },
+    "presetQuestion2": {
+        "message": "What are the main points",
+        "description": "Preset question 2"
+    },
+    "presetQuestion3": {
+        "message": "Translate this page",
+        "description": "Preset question 3"
+    },
+    "presetQuestion4": {
+        "message": "Explain this content",
+        "description": "Preset question 4"
+    },
+    "emailPreset1": {
+        "message": "Help me reply to this email",
+        "description": "Email preset 1"
+    },
+    "emailPreset2": {
+        "message": "Summarize key points of this email",
+        "description": "Email preset 2"
+    },
+    "emailPreset3": {
+        "message": "Rewrite this email professionally",
+        "description": "Email preset 3"
+    },
+    "emailPreset4": {
+        "message": "Translate this email",
+        "description": "Email preset 4"
+    },
+    "emailPreset5": {
+        "message": "Check email grammar",
+        "description": "Email preset 5"
+    }
+}

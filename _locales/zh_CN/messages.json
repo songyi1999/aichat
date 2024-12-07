@@ -1,0 +1,74 @@
+{
+    "extName": {
+        "message": "AI 聊天助手",
+        "description": "扩展名称"
+    },
+    "extDescription": {
+        "message": "一个支持网页浏览的 AI 聊天助手",
+        "description": "扩展描述"
+    },
+    "extTitle": {
+        "message": "AI 聊天",
+        "description": "工具栏中的扩展标题"
+    },
+    "assistant": {
+        "message": "AI 智能助手",
+        "description": "聊天窗口标题"
+    },
+    "settings": {
+        "message": "设置",
+        "description": "设置按钮文本"
+    },
+    "close": {
+        "message": "关闭",
+        "description": "关闭按钮文本"
+    },
+    "inputPlaceholder": {
+        "message": "输入消息...",
+        "description": "输入框占位文本"
+    },
+    "send": {
+        "message": "发送",
+        "description": "发送按钮文本"
+    },
+    "welcomeMessage": {
+        "message": "👋 你好！我是AI助手，很高兴为你服务。你可以直接提问，或者点击下方的预设问题开始对话。",
+        "description": "欢迎消息"
+    },
+    "presetQuestion1": {
+        "message": "总结下当前页面内容",
+        "description": "预设问题1"
+    },
+    "presetQuestion2": {
+        "message": "这个页面的主要观点是什么",
+        "description": "预设问题2"
+    },
+    "presetQuestion3": {
+        "message": "帮我翻译这个页面",
+        "description": "预设问题3"
+    },
+    "presetQuestion4": {
+        "message": "解释下这段内容",
+        "description": "预设问题4"
+    },
+    "emailPreset1": {
+        "message": "帮我回复这封邮件",
+        "description": "邮件预设问题1"
+    },
+    "emailPreset2": {
+        "message": "总结这封邮件的重点",
+        "description": "邮件预设问题2"
+    },
+    "emailPreset3": {
+        "message": "用更专业的语气重写这封邮件",
+        "description": "邮件预设问题3"
+    },
+    "emailPreset4": {
+        "message": "翻译这封邮件",
+        "description": "邮件预设问题4"
+    },
+    "emailPreset5": {
+        "message": "检查邮件的语法和表达",
+        "description": "邮件预设问题5"
+    }
+}
