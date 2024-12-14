@@ -162,10 +162,24 @@ chrome.runtime.onInstalled.addListener(() => {
     });
 });
 
-// 监听扩展图标点击事件
-chrome.action.onClicked.addListener((tab) => {
-    console.log('[Background] Extension icon clicked, sending toggleChat message');
+// 使用统一的处理方式
+function toggleChat(tab) {
+    console.log('[Background] Toggle chat requested');
     chrome.tabs.sendMessage(tab.id, { action: 'toggleChat' });
+}
+
+// 监听图标点击
+chrome.action.onClicked.addListener(toggleChat);
+
+// 监听快捷键
+chrome.commands.onCommand.addListener((command) => {
+    if (command === "_execute_action") {
+        chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+            if (tabs[0]) {
+                toggleChat(tabs[0]);
+            }
+        });
+    }
 });
 
 // 检查和补充API设置
