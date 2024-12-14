@@ -45,9 +45,10 @@ let apiSettings = {
 // 预设问题数组
 const presetQuestions = [
     "总结下当前页面内容",
-    "这个页面的主要观点是什么",
+    "这个页面主要观点是什么",
     "帮我翻译这个页面",
-    "解释下这段内容"
+    "解释下这段内容",
+    "回答下页面问题"
 ];
 
 // 邮件相关的预设问题
@@ -1119,10 +1120,15 @@ function createHistoryPanel() {
     panel.innerHTML = `
         <div class="codeium-history-header">
             <h3>聊天记录</h3>
-            <div class="codeium-history-actions">
+        </div>
+        <div class="codeium-history-actions">
+            <div class="codeium-history-left-actions">
                 <button id="codeium-export-json">导出JSON</button>
                 <button id="codeium-export-csv">导出CSV</button>
+            </div>
+            <div class="codeium-history-right-actions">
                 <button id="codeium-delete-selected">删除选中</button>
+                <button id="codeium-delete-all" class="danger-button">删除全部</button>
                 <button id="codeium-close-history">关闭</button>
             </div>
         </div>
@@ -1131,14 +1137,68 @@ function createHistoryPanel() {
 
     document.body.appendChild(panel);
 
-    // Add event listeners
+    // 添加事件监听器
     document.getElementById('codeium-export-json').onclick = () => exportHistory('json');
     document.getElementById('codeium-export-csv').onclick = () => exportHistory('csv');
     document.getElementById('codeium-delete-selected').onclick = deleteSelectedChats;
     document.getElementById('codeium-close-history').onclick = () => panel.style.display = 'none';
+    document.getElementById('codeium-delete-all').onclick = deleteAllChats;
 
     return panel;
 }
+
+async function deleteAllChats() {
+    console.log('[Content] Delete all chats requested');
+    if (confirm('确定要删除所有聊天记录吗？此操作不可恢复！')) {
+        try {
+            const listContainer = document.querySelector('.codeium-history-list');
+            if (listContainer) {
+                listContainer.innerHTML = '<div class="loading-message">正在删除所有记录...</div>';
+            }
+
+            await deleteChatHistory('all');
+            console.log('[Content] All chats deleted successfully');
+
+            // 刷新显示
+            await showHistoryPanel();
+
+            // 显示成功消息
+            const successMsg = document.createElement('div');
+            successMsg.className = 'success-message';
+            successMsg.textContent = '所有聊天记录已删除';
+            listContainer.prepend(successMsg);
+
+            // 3秒后移除成功消息
+            setTimeout(() => {
+                successMsg.remove();
+            }, 3000);
+
+        } catch (error) {
+            console.error('[Content] Error deleting all chats:', error);
+            alert('删除失败: ' + error.message);
+        }
+    }
+}
+
+async function deleteChatHistory(timestamps) {
+    console.log('deleteChatHistory called with:', timestamps); // 添加日志
+    return new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({
+            action: 'deleteChatHistory',
+            data: {
+                timestamps: timestamps === 'all' ? 'all' : timestamps
+            }
+        }, response => {
+            console.log('Delete response:', response); // 添加日志
+            if (response.success) {
+                resolve();
+            } else {
+                reject(new Error(response.error));
+            }
+        });
+    });
+}
+
 // 修改 showHistoryPanel 函数
 async function showHistoryPanel() {
     const panel = document.getElementById('codeium-chat-history-panel') || createHistoryPanel();
@@ -1154,7 +1214,9 @@ async function showHistoryPanel() {
             const chatElement = document.createElement('div');
             chatElement.className = 'codeium-history-item';
             chatElement.innerHTML = `
-                <input type="checkbox" data-timestamp="${chat.timestamp}">
+                <div class="codeium-history-checkbox">
+                    <input type="checkbox" data-timestamp="${chat.timestamp}">
+                </div>
                 <div class="codeium-history-content">
                     <div class="codeium-history-meta">
                         <span>${new Date(chat.timestamp).toLocaleString()}</span>
@@ -1203,21 +1265,6 @@ async function deleteSelectedChats() {
     }
 }
 
-async function deleteChatHistory(timestamps) {
-    return new Promise((resolve, reject) => {
-        chrome.runtime.sendMessage({
-            action: 'deleteChatHistory',
-            data: { timestamps }
-        }, response => {
-            if (response.success) {
-                resolve();
-            } else {
-                reject(new Error(response.error));
-            }
-        });
-    });
-}
-
 // 导出聊天记录
 async function exportChatHistory(format) {
     return new Promise((resolve, reject) => {
@@ -1259,8 +1306,35 @@ const historyStyles = `
     }
     
     .codeium-history-actions {
+        position: sticky;
+        top: 0;
+        background: white;
+        padding: 10px 0;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        z-index: 1;
+    }
+    
+    .codeium-history-left-actions,
+    .codeium-history-right-actions {
         display: flex;
         gap: 10px;
+    }
+    
+    .danger-button {
+        background-color: #dc3545;
+        color: white;
+        border: none;
+        padding: 5px 10px;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    
+    .danger-button:hover {
+        background-color: #c82333;
     }
     
     .codeium-history-item {
@@ -1291,3 +1365,45 @@ const historyStyles = `
 const styleSheet = document.createElement('style');
 styleSheet.textContent = historyStyles;
 document.head.appendChild(styleSheet);
+
+// 添加相关样式
+const additionalStyles = `
+    .codeium-history-checkbox {
+        display: flex;
+        align-items: flex-start;
+        padding-top: 5px;
+    }
+
+    .codeium-history-checkbox input[type="checkbox"] {
+        margin: 0;
+        cursor: pointer;
+    }
+
+    .codeium-history-item {
+        display: flex;
+        gap: 10px;
+        padding: 10px;
+        border-bottom: 1px solid #eee;
+    }
+
+    .codeium-history-content {
+        flex: 1;
+    }
+
+    .loading-message {
+        text-align: center;
+        padding: 20px;
+        color: #666;
+    }
+    
+    .success-message {
+        text-align: center;
+        padding: 10px;
+        background-color: #d4edda;
+        color: #155724;
+        border-radius: 4px;
+        margin-bottom: 10px;
+    }
+`;
+
+// Add styles to the page

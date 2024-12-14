@@ -103,6 +103,22 @@ async function getAllChatHistory() {
 async function deleteChatHistory(timestamps) {
     const db = await initDB();
 
+    // 如果是删除全部
+    if (timestamps === 'all') {
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(STORE_NAME, 'readwrite');
+            const store = transaction.objectStore(STORE_NAME);
+
+            const request = store.clear(); // 使用 clear() 清空所有记录
+            request.onsuccess = () => {
+                console.log('[Background] All chat history deleted');
+                resolve();
+            };
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    // 删除指定记录的逻辑保持不变
     return Promise.all(timestamps.map(timestamp =>
         new Promise((resolve, reject) => {
             const transaction = db.transaction(STORE_NAME, 'readwrite');
