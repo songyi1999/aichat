@@ -1,3 +1,39 @@
+// 添加聊天记录
+async function addChatToHistory(content, role) {
+    return new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({
+            action: 'addChatHistory',
+            data: {
+                content,
+                role,
+                url: window.location.href
+            }
+        }, response => {
+            if (response.success) {
+                resolve();
+            } else {
+                reject(new Error(response.error));
+            }
+        });
+    });
+}
+
+// 获取聊天记录
+async function getChatHistory() {
+    return new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({
+            action: 'getChatHistory'
+        }, response => {
+            if (response.success) {
+                resolve(response.history);
+            } else {
+                reject(new Error(response.error));
+            }
+        });
+    });
+}
+
+
 let chatContainer = null;
 let apiSettings = {
     baseUrl: '',
@@ -876,7 +912,7 @@ async function sendMessage(message) {
 
     try {
         // Save user message to history
-        await chatHistoryManager.addChat(message, 'user', window.location.href);
+        await addChatToHistory(message, 'user');
 
         console.log('[Content] Adding user message to UI');
         // 添加用户消息
@@ -958,7 +994,7 @@ async function sendMessage(message) {
                 }
             } else if (response.type === 'done') {
                 // Save AI response to history
-                chatHistoryManager.addChat(currentContent, 'AI', window.location.href);
+                addChatToHistory(currentContent, 'AI');
                 console.log('[Content] Stream completed, disconnecting port');
                 port.disconnect();
             }
@@ -1103,44 +1139,52 @@ function createHistoryPanel() {
 
     return panel;
 }
-
+// 修改 showHistoryPanel 函数
 async function showHistoryPanel() {
     const panel = document.getElementById('codeium-chat-history-panel') || createHistoryPanel();
     panel.style.display = 'block';
 
-    // Load and display history
-    const history = await chatHistoryManager.getHistory();
-    const listContainer = panel.querySelector('.codeium-history-list');
-    listContainer.innerHTML = '';
+    try {
+        // 获取历史记录
+        const history = await getChatHistory();
+        const listContainer = panel.querySelector('.codeium-history-list');
+        listContainer.innerHTML = '';
 
-    history.forEach(chat => {
-        const chatElement = document.createElement('div');
-        chatElement.className = 'codeium-history-item';
-        chatElement.innerHTML = `
-            <input type="checkbox" data-timestamp="${chat.timestamp}">
-            <div class="codeium-history-content">
-                <div class="codeium-history-meta">
-                    <span>${new Date(chat.timestamp).toLocaleString()}</span>
-                    <span>${chat.role}</span>
-                    <a href="${chat.url}" target="_blank">🔗</a>
+        history.forEach(chat => {
+            const chatElement = document.createElement('div');
+            chatElement.className = 'codeium-history-item';
+            chatElement.innerHTML = `
+                <input type="checkbox" data-timestamp="${chat.timestamp}">
+                <div class="codeium-history-content">
+                    <div class="codeium-history-meta">
+                        <span>${new Date(chat.timestamp).toLocaleString()}</span>
+                        <span>${chat.role}</span>
+                        <a href="${chat.url}" target="_blank">🔗</a>
+                    </div>
+                    <div class="codeium-history-text">${chat.content}</div>
                 </div>
-                <div class="codeium-history-text">${chat.content}</div>
-            </div>
-        `;
-        listContainer.appendChild(chatElement);
-    });
+            `;
+            listContainer.appendChild(chatElement);
+        });
+    } catch (error) {
+        console.error('Error loading chat history:', error);
+    }
 }
 
 async function exportHistory(format) {
-    const content = await chatHistoryManager.exportHistory(format);
-    // Send message to background script to handle download
-    chrome.runtime.sendMessage({
-        action: 'downloadFile',
-        data: {
-            url: URL.createObjectURL(new Blob([content], { type: format === 'json' ? 'application/json' : 'text/csv' })),
-            filename: `chat-history.${format}`
-        }
-    });
+    try {
+        const content = await exportChatHistory(format);
+        // Send message to background script to handle download
+        chrome.runtime.sendMessage({
+            action: 'downloadFile',
+            data: {
+                url: URL.createObjectURL(new Blob([content], { type: format === 'json' ? 'application/json' : 'text/csv' })),
+                filename: `chat-history.${format}`
+            }
+        });
+    } catch (error) {
+        console.error('Error exporting chat history:', error);
+    }
 }
 
 async function deleteSelectedChats() {
@@ -1150,11 +1194,45 @@ async function deleteSelectedChats() {
     if (selected.length === 0) return;
 
     if (confirm(`确定要删除选中的 ${selected.length} 条记录吗？`)) {
-        await chatHistoryManager.deleteChats(selected);
-        showHistoryPanel(); // Refresh the panel
+        try {
+            await deleteChatHistory(selected);
+            showHistoryPanel(); // 刷新面板
+        } catch (error) {
+            console.error('Error deleting chats:', error);
+        }
     }
 }
 
+async function deleteChatHistory(timestamps) {
+    return new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({
+            action: 'deleteChatHistory',
+            data: { timestamps }
+        }, response => {
+            if (response.success) {
+                resolve();
+            } else {
+                reject(new Error(response.error));
+            }
+        });
+    });
+}
+
+// 导出聊天记录
+async function exportChatHistory(format) {
+    return new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({
+            action: 'exportChatHistory',
+            data: { format }
+        }, response => {
+            if (response.success) {
+                resolve(response.content);
+            } else {
+                reject(new Error(response.error));
+            }
+        });
+    });
+}
 // Add styles for history panel
 const historyStyles = `
     #codeium-chat-history-panel {

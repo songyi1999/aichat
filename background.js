@@ -6,6 +6,137 @@ const defaultSettings = {
     systemPrompt: '你是一个helpful的AI助手'
 };
 
+// Chat history management
+const DB_NAME = 'chatHistoryDB';
+const DB_VERSION = 1;
+const STORE_NAME = 'chatHistory';
+const MAX_HISTORY_DAYS = 30;
+
+let db = null;
+
+// 初始化 IndexedDB
+async function initDB() {
+    if (db) return db;
+
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+        request.onerror = () => reject(request.error);
+
+        request.onupgradeneeded = (event) => {
+            const db = event.target.result;
+            if (!db.objectStoreNames.contains(STORE_NAME)) {
+                const store = db.createObjectStore(STORE_NAME, { keyPath: 'timestamp' });
+                store.createIndex('role', 'role');
+                store.createIndex('timestamp', 'timestamp');
+            }
+        };
+
+        request.onsuccess = () => {
+            db = request.result;
+            resolve(db);
+        };
+    });
+}
+
+// 添加聊天记录
+async function addChatHistory(content, role, url) {
+    const db = await initDB();
+    const timestamp = new Date().toISOString();
+    const newChat = { timestamp, content, role, url };
+
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORE_NAME, 'readwrite');
+        const store = transaction.objectStore(STORE_NAME);
+
+        const request = store.add(newChat);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+
+        transaction.oncomplete = () => {
+            // 清理过期记录
+            cleanupOldChats();
+        };
+    });
+}
+
+// 清理过期记录
+async function cleanupOldChats() {
+    const db = await initDB();
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - MAX_HISTORY_DAYS);
+
+    const transaction = db.transaction(STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+    const index = store.index('timestamp');
+
+    const range = IDBKeyRange.upperBound(thirtyDaysAgo.toISOString());
+    index.openCursor(range).onsuccess = (event) => {
+        const cursor = event.target.result;
+        if (cursor) {
+            store.delete(cursor.primaryKey);
+            cursor.continue();
+        }
+    };
+}
+
+// 获取所有聊天记录
+async function getAllChatHistory() {
+    const db = await initDB();
+
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORE_NAME, 'readonly');
+        const store = transaction.objectStore(STORE_NAME);
+
+        const request = store.getAll();
+        request.onsuccess = () => {
+            const history = request.result.sort((a, b) =>
+                new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+            );
+            resolve(history);
+        };
+        request.onerror = () => reject(request.error);
+    });
+}
+
+// 删除指定的聊天记录
+async function deleteChatHistory(timestamps) {
+    const db = await initDB();
+
+    return Promise.all(timestamps.map(timestamp =>
+        new Promise((resolve, reject) => {
+            const transaction = db.transaction(STORE_NAME, 'readwrite');
+            const store = transaction.objectStore(STORE_NAME);
+
+            const request = store.delete(timestamp);
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject(request.error);
+        })
+    ));
+}
+
+// 导出聊天记录
+async function exportChatHistory(format = 'json') {
+    const history = await getAllChatHistory();
+
+    if (format === 'json') {
+        return JSON.stringify(history, null, 2);
+    } else if (format === 'csv') {
+        const headers = ['Timestamp', 'Role', 'Content', 'URL'];
+        const rows = history.map(chat => [
+            chat.timestamp,
+            chat.role,
+            chat.content.replace(/"/g, '""'),
+            chat.url
+        ]);
+
+        return [
+            headers.join(','),
+            ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+        ].join('\n');
+    }
+}
+
 // 监听扩展安装事件
 chrome.runtime.onInstalled.addListener(() => {
     console.log('[Background] Extension installed');
@@ -24,15 +155,15 @@ chrome.action.onClicked.addListener((tab) => {
 // 检查和补充API设置
 function validateApiSettings(settings) {
     console.log('[Background] Validating API settings:', { ...settings, apiKey: '******' });
-    
+
     // 获取已保存的设置
     return new Promise((resolve) => {
-        chrome.storage.local.get(['apiSettings', 'systemPrompt'], function(result) {
+        chrome.storage.local.get(['apiSettings', 'systemPrompt'], function (result) {
             const savedSettings = {
                 ...result.apiSettings,
                 systemPrompt: result.systemPrompt
             };
-            
+
             // 优先使用保存的设置，其次是传入的设置，最后是默认设置
             const finalSettings = {
                 baseUrl: savedSettings.baseUrl || settings.baseUrl || defaultSettings.baseUrl,
@@ -40,7 +171,7 @@ function validateApiSettings(settings) {
                 modelName: savedSettings.modelName || settings.modelName || defaultSettings.modelName,
                 systemPrompt: savedSettings.systemPrompt || settings.systemPrompt || defaultSettings.systemPrompt
             };
-            
+
             resolve(finalSettings);
         });
     });
@@ -118,7 +249,7 @@ async function handleApiRequest(data, port) {
                     try {
                         const cleanedLine = line.replace(/^data: /, '');
                         const data = JSON.parse(cleanedLine);
-                        
+
                         if (data.choices && data.choices[0].delta && data.choices[0].delta.content) {
                             console.log('[Background] Sending stream chunk:', data.choices[0].delta.content);
                             port.postMessage({
@@ -145,10 +276,10 @@ async function handleApiRequest(data, port) {
 // 监听来自content script的消息
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     console.log('[Background] Received message:', request.action);
-    
+
     if (request.action === 'getSettings') {
         // 获取已保存的设置，不返回默认值
-        chrome.storage.local.get(['apiSettings', 'systemPrompt'], function(result) {
+        chrome.storage.local.get(['apiSettings', 'systemPrompt'], function (result) {
             const settings = {
                 ...result.apiSettings,
                 systemPrompt: result.systemPrompt
@@ -161,7 +292,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         });
         return true;
     }
-    
+
     if (request.action === 'saveSettings') {
         // 分别处理API设置和系统提示语
         if (request.settings.systemPrompt !== undefined) {
@@ -194,7 +325,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     if (request.action === 'getDefaultSettings') {
         // 获取已保存的设置和默认设置
-        chrome.storage.local.get(['apiSettings', 'systemPrompt'], function(result) {
+        chrome.storage.local.get(['apiSettings', 'systemPrompt'], function (result) {
             const settings = {
                 // API设置：如果没有保存则使用默认值
                 baseUrl: (result.apiSettings && result.apiSettings.baseUrl) || defaultSettings.baseUrl,
@@ -219,13 +350,41 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             saveAs: true
         });
     }
+
+    if (request.action === 'addChatHistory') {
+        addChatHistory(request.data.content, request.data.role, request.data.url)
+            .then(() => sendResponse({ success: true }))
+            .catch(error => sendResponse({ success: false, error: error.message }));
+        return true;
+    }
+
+    if (request.action === 'getChatHistory') {
+        getAllChatHistory()
+            .then(history => sendResponse({ success: true, history }))
+            .catch(error => sendResponse({ success: false, error: error.message }));
+        return true;
+    }
+
+    if (request.action === 'deleteChatHistory') {
+        deleteChatHistory(request.data.timestamps)
+            .then(() => sendResponse({ success: true }))
+            .catch(error => sendResponse({ success: false, error: error.message }));
+        return true;
+    }
+
+    if (request.action === 'exportChatHistory') {
+        exportChatHistory(request.data.format)
+            .then(content => sendResponse({ success: true, content }))
+            .catch(error => sendResponse({ success: false, error: error.message }));
+        return true;
+    }
 });
 
 // 监听长连接
-chrome.runtime.onConnect.addListener(function(port) {
+chrome.runtime.onConnect.addListener(function (port) {
     console.log('[Background] New port connection:', port.name);
     if (port.name === "ai-chat") {
-        port.onMessage.addListener(function(request) {
+        port.onMessage.addListener(function (request) {
             console.log('[Background] Received message:', request);
             if (request.action === 'makeApiRequest') {
                 handleApiRequest(request.data, port);
